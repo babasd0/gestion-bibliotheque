@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 use App\Models\Reservation;
 use App\Models\Livre;
+use App\Models\Emprunt;
 use App\Models\Adherent;
 use Illuminate\Http\Request;
 
@@ -18,6 +19,7 @@ class ReservationController extends Controller
             'livre_id' => 'required|exists:livres,id',
             'adherent_id' => 'required|exists:adherents,id',
             'date_reservation' => 'required|date',
+            'date_retour_souhaitee' => 'nullable|date',
         ]);
 
         $adherent = Adherent::findOrFail($request->adherent_id);
@@ -39,6 +41,7 @@ class ReservationController extends Controller
             'livre_id' => $request->livre_id,
             'adherent_id' => $request->adherent_id,
             'date_reservation' => $request->date_reservation,
+            'date_retour_souhaitee' => $request->date_retour_souhaitee,
             'statut' => 'en_attente',
         ]);
 
@@ -55,7 +58,22 @@ class ReservationController extends Controller
         }
 
         $reservation->update(['statut' => 'validee']);
-        return response()->json($reservation->load('livre', 'adherent'));
+
+        // Creer automatiquement l'emprunt
+        $emprunt = Emprunt::create([
+            'livre_id' => $reservation->livre_id,
+            'adherent_id' => $reservation->adherent_id,
+            'date_emprunt' => now()->toDateString(),
+            'date_retour_prevue' => $reservation->date_retour_souhaitee,
+            'statut' => 'en_cours',
+        ]);
+
+        $livre->decrement('stock');
+
+        return response()->json([
+            'reservation' => $reservation->load('livre', 'adherent'),
+            'emprunt' => $emprunt->load('livre', 'adherent'),
+        ]);
     }
 
     public function refuser(Request $request, $id)
