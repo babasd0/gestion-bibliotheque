@@ -2,11 +2,12 @@
 namespace App\Http\Controllers;
 use App\Models\Adherent;
 use Illuminate\Http\Request;
+
 class AdherentController extends Controller
 {
     public function index()
     {
-        return response()->json(Adherent::all());
+        return Adherent::all();
     }
 
     public function store(Request $request)
@@ -17,26 +18,49 @@ class AdherentController extends Controller
             'email' => 'required|email|unique:adherents',
             'telephone' => 'nullable|string',
         ]);
-        $adherent = Adherent::create($request->all());
+
+        $data = $request->all();
+        $data['numero_adherent'] = 'MBR-' . (Adherent::count() + 1);
+
+        $adherent = Adherent::create($data);
         return response()->json($adherent, 201);
     }
 
-    public function show(string $id)
+    public function show($id)
     {
-        $adherent = Adherent::findOrFail($id);
-        return response()->json($adherent);
+        return Adherent::with('emprunts.livre')->findOrFail($id);
     }
 
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
         $adherent = Adherent::findOrFail($id);
         $adherent->update($request->all());
         return response()->json($adherent);
     }
 
-    public function destroy(string $id)
+    public function destroy($id)
     {
         Adherent::findOrFail($id)->delete();
-        return response()->json(['message' => 'Adhérent supprimé']);
+        return response()->json(['message' => 'Adherent supprime']);
+    }
+
+    public function sanctionner(Request $request, $id)
+    {
+        $adherent = Adherent::findOrFail($id);
+        $adherent->update([
+            'sanctionne' => true,
+            'motif_sanction' => $request->motif_sanction,
+        ]);
+        return response()->json($adherent);
+    }
+
+    public function lever_sanction($id)
+    {
+        $adherent = Adherent::findOrFail($id);
+        $adherent->update([
+            'sanctionne' => false,
+            'motif_sanction' => null,
+        ]);
+        return response()->json($adherent);
     }
 }
